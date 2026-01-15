@@ -15,18 +15,67 @@ TSMBRL provides tools to:
 
 ## Installation
 
-### From Source
+### Prerequisites
+
+- Python >= 3.8
+- CUDA-capable GPU (recommended for faster inference)
+
+### Option 1: Conda Environment (Recommended)
 
 ```bash
-git clone https://github.com/tsmbrl/tsmbrl.git
+# Clone the repository
+git clone https://github.com/abenechehab/tsmbrl.git
 cd tsmbrl
+
+# Create and activate conda environment
+conda create -n tsmbrl python=3.10 -y
+conda activate tsmbrl
+
+# Install PyTorch with CUDA support (adjust cuda version as needed)
+conda install pytorch pytorch-cuda=11.8 -c pytorch -c nvidia -y
+
+# Install the package in editable mode
+pip install -e .
+```
+
+### Option 2: Python Virtual Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/abenechehab/tsmbrl.git
+cd tsmbrl
+
+# Create and activate virtual environment
+python -m venv .venv
+
+# Activate (Linux/macOS)
+source .venv/bin/activate
+
+# Activate (Windows)
+# .venv\Scripts\activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install the package in editable mode
 pip install -e .
 ```
 
 ### With Development Dependencies
 
 ```bash
+# After activating your environment
 pip install -e ".[dev]"
+```
+
+### Verify Installation
+
+```bash
+# Check that the package is installed
+python -c "import tsmbrl; print(tsmbrl.__version__)"
+
+# Run tests
+pytest tests/ -v
 ```
 
 ## Quick Start

@@ -4,15 +4,26 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-venv/
-.venv/
 *.egg-info/
 dist/
 build/
 eggs/
 *.egg
 .eggs/
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Conda environments
+conda-env/
+.conda/
+*.conda
+environment.yml.lock
 
 # Testing
 .pytest_cache/
