@@ -1,0 +1,23 @@
+Paper Plan (4 pages workshop paper):
+- Intro
+	- The rise of foundation models
+	- Beyond text, foundation models for time series
+	- Omnipresence of time series-like (structured) data: example of model-based RL
+	- motivation and contribution
+- Preliminaries
+	- time series forecasting foundation models
+	- dynamics modeling in MBRL
+	- evaluation metrics
+- Challenges of MBRL data
+	- multivariate
+	- probabilistic
+	- existence of covariates in the form of actions
+	- non-stationarity: data collected with changing policy
+- Experimental results
+	- Main figure: aggregated score comparing different TSFMs on handful of environments
+	- For probabilistic TSFMs, one figure showing uncertainty estimates comparison on at least one env
+	- what happens during long-horizon forecasting
+	- dynamic evaluation:
+		- Not sure how this can be done because TSFMs need long context as input
+		- say few words about it and leave it to future work
+- Conclusion

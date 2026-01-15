@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tsmbrl"
+version = "0.1.0"
+description = "Time Series Foundation Models for Model-Based Reinforcement Learning"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "TSMBRL Team"}
+]
+keywords = ["time-series", "forecasting", "reinforcement-learning", "mbrl", "chronos"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "minari>=0.5.0",
+    "chronos-forecasting>=2.0",
+    "torch>=2.0.0",
+    "numpy>=1.21.0",
+    "pandas>=1.5.0",
+    "matplotlib>=3.5.0",
+    "scipy>=1.9.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.64.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=22.0",
+    "flake8>=5.0",
+    "mypy>=0.990",
+    "pre-commit>=2.20",
+]
+
+[project.scripts]
+tsmbrl-inference = "tsmbrl.inference:main"
+
+[project.urls]
+Homepage = "https://github.com/tsmbrl/tsmbrl"
+Documentation = "https://github.com/tsmbrl/tsmbrl#readme"
+Repository = "https://github.com/tsmbrl/tsmbrl"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
