@@ -53,12 +53,8 @@ def get_model(name: str, **kwargs) -> BaseTSFM:
 
     # Built-in model variants
     model_configs = {
-        "chronos2": {"model_name": "amazon/chronos-t5-base"},
-        "chronos2-tiny": {"model_name": "amazon/chronos-t5-tiny"},
-        "chronos2-mini": {"model_name": "amazon/chronos-t5-mini"},
-        "chronos2-small": {"model_name": "amazon/chronos-t5-small"},
-        "chronos2-base": {"model_name": "amazon/chronos-t5-base"},
-        "chronos2-large": {"model_name": "amazon/chronos-t5-large"},
+        "chronos2": {"model_name": "amazon/chronos-2"},
+        "chronos2-small": {"model_name": "amazon/chronos-2-small"},
     }
 
     if name in model_configs:
@@ -80,11 +76,7 @@ def list_models() -> List[str]:
     """
     built_in = [
         "chronos2",
-        "chronos2-tiny",
-        "chronos2-mini",
         "chronos2-small",
-        "chronos2-base",
-        "chronos2-large",
     ]
     registered = list(MODEL_REGISTRY.keys())
     return built_in + registered
@@ -102,28 +94,12 @@ def get_model_info(name: str) -> Dict[str, str]:
     """
     model_configs = {
         "chronos2": {
-            "hf_name": "amazon/chronos-t5-base",
-            "description": "Chronos-2 base model (200M params)",
-        },
-        "chronos2-tiny": {
-            "hf_name": "amazon/chronos-t5-tiny",
-            "description": "Chronos-2 tiny model (8M params)",
-        },
-        "chronos2-mini": {
-            "hf_name": "amazon/chronos-t5-mini",
-            "description": "Chronos-2 mini model (20M params)",
+            "hf_name": "amazon/chronos-2",
+            "description": "Chronos-2 foundation model with covariate support",
         },
         "chronos2-small": {
-            "hf_name": "amazon/chronos-t5-small",
-            "description": "Chronos-2 small model (46M params)",
-        },
-        "chronos2-base": {
-            "hf_name": "amazon/chronos-t5-base",
-            "description": "Chronos-2 base model (200M params)",
-        },
-        "chronos2-large": {
-            "hf_name": "amazon/chronos-t5-large",
-            "description": "Chronos-2 large model (710M params)",
+            "hf_name": "amazon/chronos-2-small",
+            "description": "Chronos-2 small variant for faster inference",
         },
     }
 

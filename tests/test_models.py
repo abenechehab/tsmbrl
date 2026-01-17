@@ -101,11 +101,11 @@ class TestChronos2Wrapper:
 
         # Just test initialization, not model loading
         model = Chronos2TSFM.__new__(Chronos2TSFM)
-        model.model_name = "amazon/chronos-t5-base"
+        model.model_name = "amazon/chronos-2"
         model.device = "cpu"
         model._pipeline = None
 
-        assert model.supports_covariates is False
+        assert model.supports_covariates is True
         assert model.supports_multivariate is True
         assert model.is_probabilistic is True
 
@@ -114,4 +114,4 @@ class TestChronos2Wrapper:
         from tsmbrl.models.chronos2_wrapper import Chronos2TSFM
 
         assert len(Chronos2TSFM.SUPPORTED_MODELS) > 0
-        assert "amazon/chronos-t5-base" in Chronos2TSFM.SUPPORTED_MODELS
+        assert "amazon/chronos-2" in Chronos2TSFM.SUPPORTED_MODELS
