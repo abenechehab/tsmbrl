@@ -23,29 +23,66 @@ class TestBaseTSFM:
                 self.model = "dummy"
 
             def predict(
-                self, context, prediction_length, future_covariates=None, **kwargs
-            ):
-                return np.zeros((prediction_length,))
-
-            def predict_probabilistic(
                 self,
                 context,
                 prediction_length,
-                quantile_levels=[0.1, 0.5, 0.9],
                 future_covariates=None,
+                quantile_levels=None,
                 **kwargs,
             ):
-                return {
-                    "mean": np.zeros((prediction_length,)),
-                    "quantiles": np.zeros((prediction_length, len(quantile_levels))),
-                    "quantile_levels": quantile_levels,
-                }
+                result = {"mean": np.zeros((prediction_length,))}
+                if quantile_levels:
+                    result["quantiles"] = np.zeros(
+                        (prediction_length, len(quantile_levels))
+                    )
+                    result["quantile_levels"] = quantile_levels
+                return result
 
         model = DummyTSFM("dummy_model", device="cpu")
         assert model.model_name == "dummy_model"
         assert model.device == "cpu"
         assert model.is_probabilistic is True
         assert model.supports_covariates is False
+
+    def test_base_tsfm_predict_point(self):
+        """Test point predictions (no quantiles)."""
+
+        class DummyTSFM(BaseTSFM):
+            def load_model(self):
+                pass
+
+            def predict(
+                self,
+                context,
+                prediction_length,
+                future_covariates=None,
+                quantile_levels=None,
+                **kwargs,
+            ):
+                result = {"mean": np.ones((prediction_length,))}
+                if quantile_levels:
+                    result["quantiles"] = np.ones(
+                        (prediction_length, len(quantile_levels))
+                    )
+                    result["quantile_levels"] = quantile_levels
+                return result
+
+        model = DummyTSFM("test", device="cpu")
+        context = np.random.randn(50)
+
+        # Point prediction only
+        result = model.predict(context, prediction_length=10)
+        assert "mean" in result
+        assert result["mean"].shape == (10,)
+        assert "quantiles" not in result
+
+        # With quantiles
+        result = model.predict(
+            context, prediction_length=10, quantile_levels=[0.1, 0.5, 0.9]
+        )
+        assert "mean" in result
+        assert "quantiles" in result
+        assert result["quantiles"].shape == (10, 3)
 
     def test_base_tsfm_repr(self):
         """Test string representation."""
@@ -55,10 +92,7 @@ class TestBaseTSFM:
                 pass
 
             def predict(self, context, prediction_length, **kwargs):
-                return np.zeros((prediction_length,))
-
-            def predict_probabilistic(self, context, prediction_length, **kwargs):
-                return {}
+                return {"mean": np.zeros((prediction_length,))}
 
         model = DummyTSFM("test", device="cpu")
         repr_str = repr(model)
@@ -106,7 +140,7 @@ class TestChronos2Wrapper:
         model._pipeline = None
 
         assert model.supports_covariates is True
-        assert model.supports_multivariate is True
+        assert model.supports_multivariate is False  # Loops over dimensions
         assert model.is_probabilistic is True
 
     def test_supported_models(self):
@@ -115,3 +149,16 @@ class TestChronos2Wrapper:
 
         assert len(Chronos2TSFM.SUPPORTED_MODELS) > 0
         assert "amazon/chronos-2" in Chronos2TSFM.SUPPORTED_MODELS
+
+    def test_predict_interface(self):
+        """Test that predict method has correct signature."""
+        from tsmbrl.models.chronos2_wrapper import Chronos2TSFM
+        import inspect
+
+        sig = inspect.signature(Chronos2TSFM.predict)
+        params = list(sig.parameters.keys())
+
+        assert "context" in params
+        assert "prediction_length" in params
+        assert "future_covariates" in params
+        assert "quantile_levels" in params

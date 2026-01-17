@@ -13,17 +13,21 @@ class Chronos2TSFM(BaseTSFM):
     """
     Wrapper for Amazon Chronos-2 time series foundation model.
 
-    Supports two prediction modes:
-    - Tensor API: Fast inference for univariate series (no covariates)
-    - DataFrame API: Full covariate support via predict_with_actions()
+    Provides a unified predict() method that automatically selects the best
+    prediction strategy based on input and model capabilities:
+    - With future_covariates → DataFrame API with covariate support
+    - Without covariates → fast tensor API
+    - Multivariate data → loops over dimensions (Chronos-2 is univariate)
 
     Example:
         >>> model = Chronos2TSFM(device="cuda")
-        >>> # Without actions (tensor API)
-        >>> result = model.predict_probabilistic(context, prediction_length=10)
-        >>> # With actions as covariates (DataFrame API)
-        >>> result = model.predict_with_actions(
-        ...     context_obs, context_actions, future_actions, prediction_length=10
+        >>> # Without covariates
+        >>> result = model.predict(context, prediction_length=10)
+        >>> # With actions as covariates
+        >>> result = model.predict(
+        ...     context_obs, prediction_length=10,
+        ...     future_covariates=future_actions,
+        ...     quantile_levels=[0.1, 0.5, 0.9]
         ... )
     """
 
@@ -73,52 +77,48 @@ class Chronos2TSFM(BaseTSFM):
         self,
         context: Union[np.ndarray, torch.Tensor],
         prediction_length: int,
-        future_covariates: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        future_covariates: Optional[np.ndarray] = None,
+        quantile_levels: Optional[List[float]] = None,
         **kwargs: Any,
-    ) -> np.ndarray:
+    ) -> Dict[str, Any]:
         """
-        Generate point predictions (median).
+        Generate predictions.
+
+        Automatically selects the prediction strategy:
+        - If future_covariates provided → use DataFrame API with covariates
+        - Otherwise → use fast tensor API
+        - For multivariate context → loop over dimensions
 
         Args:
-            context: Historical observations, shape (lookback,) or (lookback, features)
+            context: Historical observations
+                - Shape (lookback,) for univariate
+                - Shape (lookback, features) for multivariate
             prediction_length: Number of steps to forecast
-            future_covariates: Not used in tensor API (use predict_with_actions instead)
-            **kwargs: Additional arguments passed to predict_probabilistic
-
-        Returns:
-            Point predictions array, shape (prediction_length,) or (prediction_length, features)
-        """
-        result = self.predict_probabilistic(
-            context=context,
-            prediction_length=prediction_length,
-            quantile_levels=[0.5],
-            **kwargs,
-        )
-        return result["mean"]
-
-    def predict_probabilistic(
-        self,
-        context: Union[np.ndarray, torch.Tensor],
-        prediction_length: int,
-        quantile_levels: List[float] = [0.1, 0.5, 0.9],
-        future_covariates: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-        **kwargs: Any,
-    ) -> Dict[str, np.ndarray]:
-        """
-        Generate probabilistic predictions using tensor API.
-
-        For action-conditioned predictions, use predict_with_actions() instead.
-
-        Args:
-            context: Historical observations, shape (lookback,) or (lookback, features)
-            prediction_length: Number of steps to forecast
+            future_covariates: Known future values (e.g., actions)
+                - Shape (prediction_length, covariate_dim)
             quantile_levels: Quantile levels for probabilistic forecast
-            future_covariates: Not used (use predict_with_actions for covariates)
+                - If None, only point predictions returned
             **kwargs: Additional arguments
 
         Returns:
-            Dictionary with 'mean', 'quantiles', 'quantile_levels'
+            Dictionary with 'mean' and optionally 'quantiles', 'quantile_levels'
         """
+        # Use DataFrame API if covariates provided
+        if future_covariates is not None and self.supports_covariates:
+            return self._predict_with_covariates(
+                context, prediction_length, future_covariates, quantile_levels
+            )
+
+        # Use tensor API (faster, no covariates)
+        return self._predict_tensor(context, prediction_length, quantile_levels)
+
+    def _predict_tensor(
+        self,
+        context: Union[np.ndarray, torch.Tensor],
+        prediction_length: int,
+        quantile_levels: Optional[List[float]] = None,
+    ) -> Dict[str, Any]:
+        """Predict using fast tensor API (no covariates)."""
         # Convert to tensor
         if isinstance(context, np.ndarray):
             context = torch.from_numpy(context).float()
@@ -131,70 +131,78 @@ class Chronos2TSFM(BaseTSFM):
 
             for f in range(n_features):
                 ctx_f = context[:, f]
-                quantiles_f, mean_f = self.pipeline.predict_quantiles(
-                    context=ctx_f,
-                    prediction_length=prediction_length,
-                    quantile_levels=quantile_levels,
-                )
-                all_means.append(mean_f.cpu().numpy())
-                all_quantiles.append(quantiles_f.cpu().numpy())
+                if quantile_levels:
+                    quantiles_f, mean_f = self.pipeline.predict_quantiles(
+                        context=ctx_f,
+                        prediction_length=prediction_length,
+                        quantile_levels=quantile_levels,
+                    )
+                    all_means.append(mean_f[0].cpu().numpy())
+                    all_quantiles.append(quantiles_f[0].cpu().numpy())
+                else:
+                    # Just get median as point prediction
+                    quantiles_f, mean_f = self.pipeline.predict_quantiles(
+                        context=ctx_f,
+                        prediction_length=prediction_length,
+                        quantile_levels=[0.5],
+                    )
+                    all_means.append(mean_f[0].cpu().numpy())
 
             # Stack: (prediction_length, features)
-            mean = np.stack([m[0] for m in all_means], axis=-1)
-            # (prediction_length, n_quantiles, features)
-            quantiles = np.stack([q[0] for q in all_quantiles], axis=-1)
+            mean = np.stack(all_means, axis=-1)
+
+            result: Dict[str, Any] = {"mean": mean}
+
+            if quantile_levels:
+                # (prediction_length, n_quantiles, features)
+                quantiles = np.stack(all_quantiles, axis=-1)
+                result["quantiles"] = quantiles
+                result["quantile_levels"] = quantile_levels
+
+            return result
 
         else:
             # Univariate
-            quantiles_t, mean_t = self.pipeline.predict_quantiles(
-                context=context,
-                prediction_length=prediction_length,
-                quantile_levels=quantile_levels,
-            )
-            mean = mean_t[0].cpu().numpy()  # (prediction_length,)
-            quantiles = quantiles_t[0].cpu().numpy()  # (prediction_length, n_quantiles)
+            if quantile_levels:
+                quantiles_t, mean_t = self.pipeline.predict_quantiles(
+                    context=context,
+                    prediction_length=prediction_length,
+                    quantile_levels=quantile_levels,
+                )
+                return {
+                    "mean": mean_t[0].cpu().numpy(),
+                    "quantiles": quantiles_t[0].cpu().numpy(),
+                    "quantile_levels": quantile_levels,
+                }
+            else:
+                quantiles_t, mean_t = self.pipeline.predict_quantiles(
+                    context=context,
+                    prediction_length=prediction_length,
+                    quantile_levels=[0.5],
+                )
+                return {"mean": mean_t[0].cpu().numpy()}
 
-        return {
-            "mean": mean,
-            "quantiles": quantiles,
-            "quantile_levels": quantile_levels,
-        }
-
-    def predict_with_actions(
+    def _predict_with_covariates(
         self,
-        context_obs: np.ndarray,
-        context_actions: np.ndarray,
-        future_actions: np.ndarray,
+        context: np.ndarray,
         prediction_length: int,
-        quantile_levels: List[float] = [0.1, 0.5, 0.9],
-    ) -> Dict[str, np.ndarray]:
-        """
-        Predict with actions as future covariates using DataFrame API.
+        future_covariates: np.ndarray,
+        quantile_levels: Optional[List[float]] = None,
+    ) -> Dict[str, Any]:
+        """Predict using DataFrame API with covariates."""
+        # Ensure numpy
+        if isinstance(context, torch.Tensor):
+            context = context.cpu().numpy()
 
-        This method uses Chronos-2's native covariate support to condition
-        predictions on known future actions (the MBRL setting).
-
-        Args:
-            context_obs: Historical observations, shape (lookback, obs_dim)
-            context_actions: Historical actions, shape (lookback, act_dim)
-            future_actions: Known future actions, shape (horizon, act_dim)
-            prediction_length: Number of steps to forecast
-            quantile_levels: Quantile levels for probabilistic forecast
-
-        Returns:
-            Dictionary with 'mean', 'quantiles', 'quantile_levels'
-        """
-        lookback = context_obs.shape[0]
-        obs_dim = context_obs.shape[1] if context_obs.ndim > 1 else 1
-        act_dim = context_actions.shape[1] if context_actions.ndim > 1 else 1
+        lookback = context.shape[0]
+        obs_dim = context.shape[1] if context.ndim > 1 else 1
+        cov_dim = future_covariates.shape[1] if future_covariates.ndim > 1 else 1
 
         # Ensure 2D
-        if context_obs.ndim == 1:
-            context_obs = context_obs.reshape(-1, 1)
-        if context_actions.ndim == 1:
-            context_actions = context_actions.reshape(-1, 1)
-        if future_actions.ndim == 1:
-            future_actions = future_actions.reshape(-1, 1)
+        if context.ndim == 1:
+            context = context.reshape(-1, 1)
+        if future_covariates.ndim == 1:
+            future_covariates = future_covariates.reshape(-1, 1)
 
         # Build context DataFrame
         context_rows = []
@@ -203,16 +211,16 @@ class Chronos2TSFM(BaseTSFM):
                 row = {
                     "timestamp": t,
                     "id": f"obs_{d}",
-                    "target": context_obs[t, d],
+                    "target": context[t, d],
                 }
-                # Add actions as past covariates
-                for a in range(act_dim):
-                    row[f"action_{a}"] = context_actions[t, a]
+                # Add placeholder covariates for context (use zeros or could use past actions)
+                for c in range(cov_dim):
+                    row[f"cov_{c}"] = 0.0
                 context_rows.append(row)
 
         context_df = pd.DataFrame(context_rows)
 
-        # Build future DataFrame with actions as covariates
+        # Build future DataFrame with covariates
         future_rows = []
         for t in range(prediction_length):
             for d in range(obs_dim):
@@ -220,19 +228,21 @@ class Chronos2TSFM(BaseTSFM):
                     "timestamp": lookback + t,
                     "id": f"obs_{d}",
                 }
-                # Add future actions as covariates
-                for a in range(act_dim):
-                    row[f"action_{a}"] = future_actions[t, a]
+                for c in range(cov_dim):
+                    row[f"cov_{c}"] = future_covariates[t, c]
                 future_rows.append(row)
 
         future_df = pd.DataFrame(future_rows)
+
+        # Determine quantile levels
+        q_levels = quantile_levels if quantile_levels else [0.5]
 
         # Predict using DataFrame API
         pred_df = self.pipeline.predict_df(
             context_df,
             future_df=future_df,
             prediction_length=prediction_length,
-            quantile_levels=quantile_levels,
+            quantile_levels=q_levels,
             id_column="id",
             timestamp_column="timestamp",
             target="target",
@@ -240,13 +250,13 @@ class Chronos2TSFM(BaseTSFM):
 
         # Parse output DataFrame into arrays
         mean = np.zeros((prediction_length, obs_dim))
-        quantiles = np.zeros((prediction_length, len(quantile_levels), obs_dim))
+        quantiles = np.zeros((prediction_length, len(q_levels), obs_dim))
 
         for d in range(obs_dim):
             dim_df = pred_df[pred_df["id"] == f"obs_{d}"].sort_values("timestamp")
             mean[:, d] = dim_df["mean"].values
 
-            for q_idx, q_level in enumerate(quantile_levels):
+            for q_idx, q_level in enumerate(q_levels):
                 q_col = str(q_level)
                 if q_col in dim_df.columns:
                     quantiles[:, q_idx, d] = dim_df[q_col].values
@@ -256,11 +266,13 @@ class Chronos2TSFM(BaseTSFM):
             mean = mean.squeeze(-1)
             quantiles = quantiles.squeeze(-1)
 
-        return {
-            "mean": mean,
-            "quantiles": quantiles,
-            "quantile_levels": quantile_levels,
-        }
+        result: Dict[str, Any] = {"mean": mean}
+
+        if quantile_levels:
+            result["quantiles"] = quantiles
+            result["quantile_levels"] = quantile_levels
+
+        return result
 
     @property
     def supports_covariates(self) -> bool:
@@ -269,8 +281,8 @@ class Chronos2TSFM(BaseTSFM):
 
     @property
     def supports_multivariate(self) -> bool:
-        """Multivariate supported via independent prediction per dimension."""
-        return True
+        """Multivariate handled by looping over dimensions."""
+        return False  # Chronos-2 is fundamentally univariate
 
     @property
     def is_probabilistic(self) -> bool:

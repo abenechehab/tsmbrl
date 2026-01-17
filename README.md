@@ -107,18 +107,20 @@ model = get_model("chronos2", device="cuda")
 
 # Run predictions
 for window in windows:
-    result = model.predict_with_actions(
-        context_obs=window.context_observations,
-        context_actions=window.context_actions,
-        future_actions=window.future_actions,
-        prediction_length=10
+    # Unified predict method - pass future_covariates to use actions
+    result = model.predict(
+        context=window.context_observations,
+        prediction_length=10,
+        future_covariates=window.future_actions,  # Actions as covariates
+        quantile_levels=[0.1, 0.5, 0.9],  # Optional: for probabilistic predictions
     )
+    # result contains 'mean' and optionally 'quantiles', 'quantile_levels'
 ```
 
 ### CLI Usage
 
 ```bash
-# Run inference experiment
+# Run inference with actions as covariates
 python -m tsmbrl.inference \
     --dataset door-human \
     --model chronos2 \
@@ -132,8 +134,14 @@ python -m tsmbrl.inference \
     --dataset door-human \
     --model chronos2 \
     --horizon 10 \
-    --no-actions \
     --output results/baseline.json
+
+# Point predictions only (no quantiles)
+python -m tsmbrl.inference \
+    --dataset door-human \
+    --model chronos2 \
+    --no-probabilistic \
+    --output results/point_only.json
 ```
 
 ## Project Structure

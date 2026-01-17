@@ -86,16 +86,18 @@ def main():
     all_targets = []
     all_quantiles = []
 
+    quantile_levels = [0.1, 0.5, 0.9]
+
     for i, window in enumerate(windows[:10]):  # Limit for demo
         if i % 5 == 0:
             print(f"  Processing window {i + 1}/{min(10, len(windows))}")
 
-        result = model.predict_with_actions(
-            context_obs=window.context_observations,
-            context_actions=window.context_actions,
-            future_actions=window.future_actions,
+        # Use unified predict method with future_covariates (actions)
+        result = model.predict(
+            context=window.context_observations,
             prediction_length=HORIZON,
-            quantile_levels=[0.1, 0.5, 0.9],
+            future_covariates=window.future_actions,  # Actions as covariates
+            quantile_levels=quantile_levels,
         )
 
         all_preds.append(result["mean"])
@@ -122,7 +124,7 @@ def main():
         try:
             quantiles = np.stack(all_quantiles)
             prob_metrics = compute_all_probabilistic_metrics(
-                quantiles, [0.1, 0.5, 0.9], targets
+                quantiles, quantile_levels, targets
             )
             print("\nProbabilistic Metrics:")
             print(f"  CRPS: {prob_metrics['crps']: .6f}")

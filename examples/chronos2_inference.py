@@ -3,19 +3,19 @@
 Chronos-2 specific example showing different usage patterns.
 
 This demonstrates:
-1. Tensor API for univariate prediction
-2. Multivariate prediction
-3. Action-conditioned prediction for MBRL
+1. Point predictions (no quantiles)
+2. Probabilistic predictions with quantiles
+3. Predictions with covariates (actions for MBRL)
 """
 
 import numpy as np
 import torch
 
 
-def example_tensor_api():
-    """Demonstrate tensor API usage."""
+def example_point_prediction():
+    """Demonstrate point predictions without quantiles."""
     print("=" * 50)
-    print("Example 1: Tensor API")
+    print("Example 1: Point Predictions")
     print("=" * 50)
 
     from tsmbrl.models.chronos2_wrapper import Chronos2TSFM
@@ -32,17 +32,17 @@ def example_tensor_api():
     t = np.linspace(0, 4 * np.pi, 100)
     series = np.sin(t) + 0.1 * np.random.randn(100)
 
-    # Predict
-    context = torch.from_numpy(series[:80]).float()
-    result = model.predict_probabilistic(
+    # Predict (no quantiles = point prediction only)
+    context = series[:80]
+    result = model.predict(
         context=context,
         prediction_length=20,
-        quantile_levels=[0.1, 0.5, 0.9],
+        quantile_levels=None,  # No quantiles
     )
 
     print(f"Context shape: {context.shape}")
     print(f"Mean predictions shape: {result['mean'].shape}")
-    print(f"Quantiles shape: {result['quantiles'].shape}")
+    print(f"Contains quantiles: {'quantiles' in result}")
 
     # Compute error on ground truth
     ground_truth = series[80:100]
@@ -52,10 +52,43 @@ def example_tensor_api():
     return result
 
 
+def example_probabilistic():
+    """Demonstrate probabilistic predictions with quantiles."""
+    print("\n" + "=" * 50)
+    print("Example 2: Probabilistic Predictions")
+    print("=" * 50)
+
+    from tsmbrl.models.chronos2_wrapper import Chronos2TSFM
+
+    try:
+        model = Chronos2TSFM(device="cuda")
+    except Exception:
+        model = Chronos2TSFM(device="cpu")
+
+    # Create synthetic time series
+    t = np.linspace(0, 4 * np.pi, 100)
+    series = np.sin(t) + 0.1 * np.random.randn(100)
+
+    # Predict with quantiles
+    context = series[:80]
+    result = model.predict(
+        context=context,
+        prediction_length=20,
+        quantile_levels=[0.1, 0.5, 0.9],  # With quantiles
+    )
+
+    print(f"Context shape: {context.shape}")
+    print(f"Mean predictions shape: {result['mean'].shape}")
+    print(f"Quantiles shape: {result['quantiles'].shape}")
+    print(f"Quantile levels: {result['quantile_levels']}")
+
+    return result
+
+
 def example_multivariate():
     """Demonstrate multivariate prediction."""
     print("\n" + "=" * 50)
-    print("Example 2: Multivariate Prediction")
+    print("Example 3: Multivariate Prediction")
     print("=" * 50)
 
     from tsmbrl.models.chronos2_wrapper import Chronos2TSFM
@@ -80,9 +113,9 @@ def example_multivariate():
     )
     data += 0.1 * np.random.randn(n_steps, n_features)
 
-    # Predict
+    # Predict (handles multivariate by looping over dimensions)
     context = data[:80]
-    result = model.predict_multivariate(
+    result = model.predict(
         context=context,
         prediction_length=20,
         quantile_levels=[0.1, 0.5, 0.9],
@@ -101,10 +134,10 @@ def example_multivariate():
     return result
 
 
-def example_with_actions():
-    """Demonstrate action-conditioned prediction for MBRL."""
+def example_with_covariates():
+    """Demonstrate prediction with covariates (actions for MBRL)."""
     print("\n" + "=" * 50)
-    print("Example 3: Action-Conditioned Prediction (MBRL)")
+    print("Example 4: Prediction with Covariates (MBRL)")
     print("=" * 50)
 
     from tsmbrl.models.chronos2_wrapper import Chronos2TSFM
@@ -123,22 +156,19 @@ def example_with_actions():
     # Generate synthetic trajectory
     np.random.seed(42)
     context_obs = np.random.randn(lookback, obs_dim)
-    context_actions = np.random.randn(lookback, act_dim)
     future_actions = np.random.randn(horizon, act_dim)
     target_obs = np.random.randn(horizon, obs_dim)  # Ground truth
 
-    # Predict
-    result = model.predict_with_actions(
-        context_obs=context_obs,
-        context_actions=context_actions,
-        future_actions=future_actions,
+    # Predict with future_covariates (actions)
+    result = model.predict(
+        context=context_obs,
         prediction_length=horizon,
+        future_covariates=future_actions,  # Actions as covariates
         quantile_levels=[0.1, 0.5, 0.9],
     )
 
     print(f"Context observations: {context_obs.shape}")
-    print(f"Context actions: {context_actions.shape}")
-    print(f"Future actions: {future_actions.shape}")
+    print(f"Future actions (covariates): {future_actions.shape}")
     print(f"Predictions: {result['mean'].shape}")
     print(f"Quantiles: {result['quantiles'].shape}")
 
@@ -158,7 +188,7 @@ def main():
     try:
         from tsmbrl.models.model_registry import get_model
 
-        model = get_model("chronos2-tiny", device="cpu")
+        model = get_model("chronos2-small", device="cpu")
         print("Model loading test: SUCCESS\n")
     except Exception as e:
         print(f"Model loading test failed: {e}")
@@ -167,9 +197,14 @@ def main():
 
     # Run examples
     try:
-        example_tensor_api()
+        example_point_prediction()
     except Exception as e:
-        print(f"Tensor API example failed: {e}")
+        print(f"Point prediction example failed: {e}")
+
+    try:
+        example_probabilistic()
+    except Exception as e:
+        print(f"Probabilistic example failed: {e}")
 
     try:
         example_multivariate()
@@ -177,9 +212,9 @@ def main():
         print(f"Multivariate example failed: {e}")
 
     try:
-        example_with_actions()
+        example_with_covariates()
     except Exception as e:
-        print(f"Action-conditioned example failed: {e}")
+        print(f"Covariates example failed: {e}")
 
     print("\n" + "=" * 50)
     print("All examples complete!")

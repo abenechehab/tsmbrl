@@ -13,7 +13,8 @@ class BaseTSFM(ABC):
     Abstract base class for all TSFM wrappers.
 
     This class defines the common interface that all TSFM implementations must follow.
-    It supports both point predictions and probabilistic predictions with quantiles.
+    A single predict() method handles all cases: point/probabilistic, with/without
+    covariates, univariate/multivariate.
 
     Attributes:
         model_name: Name/identifier of the model
@@ -46,52 +47,37 @@ class BaseTSFM(ABC):
     @abstractmethod
     def predict(
         self,
-        context: Union[np.ndarray, torch.Tensor, pd.DataFrame],
+        context: Union[np.ndarray, torch.Tensor],
         prediction_length: int,
-        future_covariates: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        future_covariates: Optional[np.ndarray] = None,
+        quantile_levels: Optional[List[float]] = None,
         **kwargs: Any,
-    ) -> np.ndarray:
+    ) -> Dict[str, Any]:
         """
-        Generate point predictions (mean/median).
+        Generate predictions.
+
+        This unified method handles all prediction scenarios:
+        - If future_covariates provided and model supports them → use covariates
+        - If model is multivariate → joint prediction, else loop over dimensions
+        - If quantile_levels provided and model is probabilistic → include quantiles
 
         Args:
             context: Historical observations
-                - Tensor/ndarray: Shape (lookback,) for univariate or (lookback, features)
-                - DataFrame: With columns [timestamp, id, target, covariates...]
+                - Shape (lookback,) for univariate
+                - Shape (lookback, features) for multivariate
             prediction_length: Number of future timesteps to predict
-            future_covariates: Known future values (e.g., planned actions in MBRL)
-            **kwargs: Additional model-specific parameters
-
-        Returns:
-            Point predictions with shape (prediction_length,) or (prediction_length, features)
-        """
-        pass
-
-    @abstractmethod
-    def predict_probabilistic(
-        self,
-        context: Union[np.ndarray, torch.Tensor, pd.DataFrame],
-        prediction_length: int,
-        quantile_levels: List[float] = [0.1, 0.5, 0.9],
-        future_covariates: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-        **kwargs: Any,
-    ) -> Dict[str, np.ndarray]:
-        """
-        Generate probabilistic predictions with quantiles.
-
-        Args:
-            context: Historical observations (same format as predict())
-            prediction_length: Number of future timesteps to predict
-            quantile_levels: List of quantile levels for probabilistic forecast
-            future_covariates: Known future values
+            future_covariates: Known future values (e.g., actions in MBRL)
+                - Shape (prediction_length, covariate_dim)
+            quantile_levels: Quantile levels for probabilistic forecast (e.g., [0.1, 0.5, 0.9])
+                - If None, only point predictions are returned
             **kwargs: Additional model-specific parameters
 
         Returns:
             Dictionary containing:
-                - 'mean': Mean predictions, shape (prediction_length,) or (prediction_length, features)
-                - 'quantiles': Quantile predictions, shape (prediction_length, num_quantiles) or
-                              (prediction_length, num_quantiles, features)
-                - 'quantile_levels': List of quantile levels used
+                - 'mean': Point predictions, shape (prediction_length,) or (prediction_length, features)
+                - 'quantiles': (optional) Quantile predictions if quantile_levels provided
+                    Shape (prediction_length, n_quantiles) or (prediction_length, n_quantiles, features)
+                - 'quantile_levels': (optional) The quantile levels used
         """
         pass
 
@@ -102,12 +88,12 @@ class BaseTSFM(ABC):
 
     @property
     def supports_covariates(self) -> bool:
-        """Whether this TSFM supports past/future covariates."""
+        """Whether this TSFM supports future covariates."""
         return False
 
     @property
     def supports_multivariate(self) -> bool:
-        """Whether this TSFM supports multivariate forecasting."""
+        """Whether this TSFM supports joint multivariate forecasting."""
         return False
 
     def __repr__(self) -> str:

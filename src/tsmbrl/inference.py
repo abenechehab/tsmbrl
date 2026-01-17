@@ -87,24 +87,41 @@ def run_inference(config: ExperimentConfig) -> Dict[str, Any]:
     logger.info(f"  Supports covariates: {model.supports_covariates}")
     logger.info(f"  Is probabilistic: {model.is_probabilistic}")
 
-    # 5. Run predictions
+    # 5. Determine prediction settings
+    use_covariates = (
+        config.use_actions_as_covariates and model.supports_covariates
+    )
+    use_quantiles = (
+        config.compute_probabilistic_metrics and model.is_probabilistic
+    )
+    quantile_levels = config.quantile_levels if use_quantiles else None
+
+    if config.use_actions_as_covariates and not model.supports_covariates:
+        logger.warning(
+            f"Model {config.model_name} does not support covariates. "
+            "Ignoring --with-actions flag."
+        )
+
+    # 6. Run predictions
     logger.info("Running predictions...")
     all_predictions = []
     all_targets = []
     all_quantiles = []
 
     for window in tqdm(windows, desc="Predicting"):
-        # Use action-conditioned prediction if enabled
-        result = model.predict_with_actions(
-            context_obs=window.context_observations,
-            context_actions=window.context_actions,
-            future_actions=window.future_actions,
+        # Prepare future covariates if using actions
+        future_covariates = window.future_actions if use_covariates else None
+
+        # Call unified predict method
+        result = model.predict(
+            context=window.context_observations,
             prediction_length=config.horizon,
-            quantile_levels=config.quantile_levels,
+            future_covariates=future_covariates,
+            quantile_levels=quantile_levels,
         )
 
         # Collect predictions
-        mean_pred = result["mean"]  # Shape: (horizon, obs_dim) or similar
+        mean_pred = result["mean"]
 
         # Ensure consistent shape: (horizon, obs_dim)
         if mean_pred.ndim == 1:
@@ -116,7 +133,7 @@ def run_inference(config: ExperimentConfig) -> Dict[str, Any]:
         if "quantiles" in result:
             all_quantiles.append(result["quantiles"])
 
-    # 6. Stack and compute metrics
+    # 7. Stack and compute metrics
     predictions = np.stack(all_predictions)  # (n_windows, horizon, obs_dim)
     targets = np.stack(all_targets)
 
@@ -137,17 +154,17 @@ def run_inference(config: ExperimentConfig) -> Dict[str, Any]:
             "model": config.model_name,
             "lookback": config.lookback,
             "horizon": config.horizon,
-            "use_actions": config.use_actions_as_covariates,
+            "use_actions": use_covariates,
             "n_windows": len(windows),
             "obs_dim": loader.obs_dim,
             "act_dim": loader.act_dim,
-            "quantile_levels": config.quantile_levels,
+            "quantile_levels": config.quantile_levels if use_quantiles else None,
             "seed": config.seed,
         },
     }
 
     # Probabilistic metrics (if available)
-    if all_quantiles and config.compute_probabilistic_metrics:
+    if all_quantiles and use_quantiles:
         try:
             quantiles = np.stack(all_quantiles)
             prob_metrics = compute_all_probabilistic_metrics(
@@ -236,12 +253,12 @@ def main() -> None:
     parser.add_argument(
         "--with-actions",
         action="store_true",
-        help="Use actions as covariates (experimental)",
+        help="Use actions as covariates (if model supports)",
     )
     parser.add_argument(
-        "--no-actions",
+        "--no-probabilistic",
         action="store_true",
-        help="Do not use actions (baseline)",
+        help="Disable probabilistic predictions",
     )
 
     # Output arguments
@@ -293,10 +310,11 @@ def main() -> None:
         device=args.device,
         lookback=args.lookback,
         horizon=args.horizon,
-        use_actions_as_covariates=args.with_actions and not args.no_actions,
+        use_actions_as_covariates=args.with_actions,
         quantile_levels=args.quantiles,
         save_predictions=args.save_predictions,
         seed=args.seed,
+        compute_probabilistic_metrics=not args.no_probabilistic,
     )
 
     # Run experiment
