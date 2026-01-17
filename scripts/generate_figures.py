@@ -3,14 +3,15 @@
 Generate publication-quality figures from experiment results.
 
 Usage:
-    python scripts/generate_figures.py --results results/summary.csv --output results/figures/
+    python scripts/generate_figures.py --results results/summary.csv
+        --output results/figures/
 """
 
 import argparse
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
+# import numpy as np
 
 
 def load_results(results_path: Path) -> pd.DataFrame:
@@ -43,7 +44,7 @@ def plot_horizon_comparison(df: pd.DataFrame, output_dir: Path):
             save_path=output_dir / "mse_vs_horizon.png",
             show=False,
         )
-        print(f"  Saved: mse_vs_horizon.png")
+        print("Saved: mse_vs_horizon.png")
 
 
 def plot_dataset_comparison(df: pd.DataFrame, output_dir: Path):
@@ -64,7 +65,7 @@ def plot_dataset_comparison(df: pd.DataFrame, output_dir: Path):
             save_path=output_dir / "dataset_comparison.png",
             show=False,
         )
-        print(f"  Saved: dataset_comparison.png")
+        print("Saved: dataset_comparison.png")
 
 
 def plot_actions_ablation(df: pd.DataFrame, output_dir: Path):
@@ -76,9 +77,11 @@ def plot_actions_ablation(df: pd.DataFrame, output_dir: Path):
         return
 
     # Aggregate metrics
-    with_actions = df[df["use_actions"] == True][["mse", "mae", "rmse"]].mean().to_dict()
+    with_actions = (
+        df[df["use_actions"] is True][["mse", "mae", "rmse"]].mean().to_dict()
+    )
     without_actions = (
-        df[df["use_actions"] == False][["mse", "mae", "rmse"]].mean().to_dict()
+        df[df["use_actions"] is False][["mse", "mae", "rmse"]].mean().to_dict()
     )
 
     if with_actions and without_actions:
@@ -90,7 +93,7 @@ def plot_actions_ablation(df: pd.DataFrame, output_dir: Path):
             save_path=output_dir / "actions_ablation.png",
             show=False,
         )
-        print(f"  Saved: actions_ablation.png")
+        print("Saved: actions_ablation.png")
 
 
 def plot_model_comparison(df: pd.DataFrame, output_dir: Path):
@@ -122,7 +125,7 @@ def plot_model_comparison(df: pd.DataFrame, output_dir: Path):
             save_path=output_dir / "model_comparison.png",
             show=False,
         )
-        print(f"  Saved: model_comparison.png")
+        print("Saved: model_comparison.png")
 
 
 def create_summary_table(df: pd.DataFrame, output_dir: Path):
@@ -140,7 +143,7 @@ def create_summary_table(df: pd.DataFrame, output_dir: Path):
 
     # Save as CSV
     summary.to_csv(output_dir / "summary_table.csv")
-    print(f"  Saved: summary_table.csv")
+    print("Saved: summary_table.csv")
 
     # Also save as LaTeX
     latex_str = summary.to_latex(
@@ -150,7 +153,7 @@ def create_summary_table(df: pd.DataFrame, output_dir: Path):
     )
     with open(output_dir / "summary_table.tex", "w") as f:
         f.write(latex_str)
-    print(f"  Saved: summary_table.tex")
+    print("Saved: summary_table.tex")
 
 
 def main():
