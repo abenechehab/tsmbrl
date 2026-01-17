@@ -20,6 +20,16 @@ DATASET_REGISTRY: Dict[str, str] = {
     "relocate-human": "D4RL/relocate/human-v2",
     "relocate-expert": "D4RL/relocate/expert-v2",
     "relocate-cloned": "D4RL/relocate/cloned-v2",
+    # D4RL Mujoco locomotion tasks
+    "halfcheetah-medium": "mujoco/halfcheetah/medium-v0",
+    "hopper-medium": "mujoco/hopper/medium-v0",
+    "walker2d-medium": "mujoco/walker2d/medium-v0",
+    "halfcheetah-simple": "mujoco/halfcheetah/simple-v0",
+    "hopper-simple": "mujoco/hopper/simple-v0",
+    "walker2d-simple": "mujoco/walker2d/simple-v0",
+    "halfcheetah-expert": "mujoco/halfcheetah/expert-v0",
+    "hopper-expert": "mujoco/hopper/expert-v0",
+    "walker2d-expert": "mujoco/walker2d/expert-v0",
 }
 
 

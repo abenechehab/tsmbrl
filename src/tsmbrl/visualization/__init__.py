@@ -1,6 +1,11 @@
 """Visualization tools for TSMBRL."""
 
-from tsmbrl.visualization.figure_config import apply_style, COLORS, MODEL_COLORS, get_model_color
+from tsmbrl.visualization.figure_config import (
+    apply_style,
+    COLORS,
+    MODEL_COLORS,
+    get_model_color,
+)
 from tsmbrl.visualization.plot_predictions import (
     plot_trajectory_predictions,
     plot_multi_horizon_mse,

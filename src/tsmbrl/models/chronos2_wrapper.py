@@ -159,7 +159,7 @@ class Chronos2TSFM(BaseTSFM):
             context = torch.from_numpy(context).float()
 
         # Handle different input shapes
-        original_shape = context.shape
+        # original_shape = context.shape
         is_multivariate = context.dim() == 3
 
         if is_multivariate:

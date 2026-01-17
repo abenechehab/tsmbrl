@@ -125,7 +125,13 @@ class MinariDataLoader:
         Raises:
             ValueError: If space type is not supported
         """
-        from gymnasium.spaces import Box, Dict as DictSpace, Discrete, MultiBinary, MultiDiscrete
+        from gymnasium.spaces import (
+            Box,
+            Dict as DictSpace,
+            Discrete,
+            MultiBinary,
+            MultiDiscrete,
+        )
 
         if isinstance(space, Box):
             return int(np.prod(space.shape))
@@ -194,14 +200,13 @@ class MinariDataLoader:
                 break
 
             # Skip short episodes
-            if ep_data.total_timesteps < min_length:
+            if len(ep_data) < min_length:
                 continue
 
             # Flatten observations: shape (steps+1, obs_dim)
-            obs = self._flatten_array(ep_data.observations, ep_data.total_timesteps + 1)
-
+            obs = self._flatten_array(ep_data.observations, len(ep_data) + 1)
             # Flatten actions: shape (steps, act_dim)
-            actions = self._flatten_array(ep_data.actions, ep_data.total_timesteps)
+            actions = self._flatten_array(ep_data.actions, len(ep_data))
 
             yield Episode(
                 id=ep_data.id,
@@ -229,8 +234,8 @@ class MinariDataLoader:
 
         episodes = []
         for ep_data in self.dataset.sample_episodes(n_episodes=n_episodes):
-            obs = self._flatten_array(ep_data.observations, ep_data.total_timesteps + 1)
-            actions = self._flatten_array(ep_data.actions, ep_data.total_timesteps)
+            obs = self._flatten_array(ep_data.observations, len(ep_data) + 1)
+            actions = self._flatten_array(ep_data.actions, len(ep_data))
 
             episodes.append(
                 Episode(

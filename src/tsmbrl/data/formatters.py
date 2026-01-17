@@ -57,7 +57,8 @@ class TimeSeriesFormatter:
         act_dim: Action dimension
 
     Example:
-        >>> formatter = TimeSeriesFormatter(lookback=50, horizon=10, obs_dim=39, act_dim=28)
+        >>> formatter = TimeSeriesFormatter(
+        ...     lookback=50, horizon=10, obs_dim=39, act_dim=28)
         >>> windows = list(formatter.create_windows_from_episode(obs, actions))
         >>> tensors = formatter.to_tensor_format(windows)
     """
@@ -104,7 +105,8 @@ class TimeSeriesFormatter:
 
         Note:
             Uses observations[:-1] (states) for forecasting, not the final observation.
-            This gives us states aligned with actions where state[t] -> action[t] -> state[t+1].
+            This gives us states aligned with actions where
+                state[t] -> action[t] -> state[t+1].
         """
         # Use states (exclude final observation)
         states = observations[:-1]  # (steps, obs_dim)
@@ -154,7 +156,9 @@ class TimeSeriesFormatter:
         for w in windows:
             if include_actions_in_context:
                 # Concatenate observations and actions
-                ctx = np.concatenate([w.context_observations, w.context_actions], axis=-1)
+                ctx = np.concatenate(
+                    [w.context_observations, w.context_actions], axis=-1
+                )
             else:
                 ctx = w.context_observations
 
@@ -349,7 +353,9 @@ def prepare_evaluation_data(
 
         # Subsample if too many windows
         if len(episode_windows) > windows_per_episode:
-            indices = np.linspace(0, len(episode_windows) - 1, windows_per_episode, dtype=int)
+            indices = np.linspace(
+                0, len(episode_windows) - 1, windows_per_episode, dtype=int
+            )
             episode_windows = [episode_windows[i] for i in indices]
 
         all_windows.extend(episode_windows)

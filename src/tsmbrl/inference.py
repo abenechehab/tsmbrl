@@ -16,7 +16,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import numpy as np
 from tqdm import tqdm
@@ -182,7 +182,6 @@ def main() -> None:
         description="Run TSFM inference on MBRL datasets",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-
     # Dataset arguments
     parser.add_argument(
         "--dataset",

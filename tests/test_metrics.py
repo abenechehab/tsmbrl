@@ -223,9 +223,7 @@ class TestProbabilisticMetrics:
         quantile_levels = [0.1, 0.5, 0.9]
         targets = np.random.randn(n_samples, horizon)
 
-        metrics = compute_all_probabilistic_metrics(
-            quantiles, quantile_levels, targets
-        )
+        metrics = compute_all_probabilistic_metrics(quantiles, quantile_levels, targets)
 
         assert "crps" in metrics
         assert "calibration" in metrics

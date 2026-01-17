@@ -22,7 +22,9 @@ class TestBaseTSFM:
             def load_model(self):
                 self.model = "dummy"
 
-            def predict(self, context, prediction_length, future_covariates=None, **kwargs):
+            def predict(
+                self, context, prediction_length, future_covariates=None, **kwargs
+            ):
                 return np.zeros((prediction_length,))
 
             def predict_probabilistic(
@@ -31,7 +33,7 @@ class TestBaseTSFM:
                 prediction_length,
                 quantile_levels=[0.1, 0.5, 0.9],
                 future_covariates=None,
-                **kwargs
+                **kwargs,
             ):
                 return {
                     "mean": np.zeros((prediction_length,)),

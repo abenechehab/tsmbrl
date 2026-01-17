@@ -31,8 +31,10 @@ def create_synthetic_results():
 
     # Simulated predictions (with some error)
     predictions = {
-        "chronos2": ground_truth[n_context:] + 0.15 * np.random.randn(n_horizon, obs_dim),
-        "baseline": ground_truth[n_context:] + 0.3 * np.random.randn(n_horizon, obs_dim),
+        "chronos2": ground_truth[n_context:]
+        + 0.15 * np.random.randn(n_horizon, obs_dim),
+        "baseline": ground_truth[n_context:]
+        + 0.3 * np.random.randn(n_horizon, obs_dim),
     }
 
     # Quantile predictions
@@ -74,7 +76,7 @@ def example_uncertainty_plot(data, save_dir):
 
     from tsmbrl.visualization.plot_uncertainty import plot_prediction_intervals
 
-    horizon = data["mean"].shape[0]
+    # horizon = data["mean"].shape[0]
     context = data["ground_truth"][: data["context_length"], 0]
     ground_truth = data["ground_truth"][data["context_length"] :, 0]
 
