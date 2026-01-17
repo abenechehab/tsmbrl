@@ -3,7 +3,8 @@
 Aggregate results from multiple experiments into a summary CSV.
 
 Usage:
-    python scripts/aggregate_results.py --input results/raw/ --output results/summary.csv
+    python scripts/aggregate_results.py --input results/raw/
+        --output results/summary.csv
 """
 
 import argparse
@@ -181,11 +182,13 @@ def main():
 
             for dataset in df["dataset"].unique():
                 subset = df[df["dataset"] == dataset]
-                with_actions = subset[subset["use_actions"] == True]["mse"].mean()
-                without_actions = subset[subset["use_actions"] == False]["mse"].mean()
+                with_actions = subset[subset["use_actions"] is True]["mse"].mean()
+                without_actions = subset[subset["use_actions"] is False]["mse"].mean()
 
                 if pd.notna(with_actions) and pd.notna(without_actions):
-                    improvement = (without_actions - with_actions) / without_actions * 100
+                    improvement = (
+                        (without_actions - with_actions) / without_actions * 100
+                    )
                     print(
                         f"  {dataset}: "
                         f"with={with_actions:.6f}, "
